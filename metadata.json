@@ -1,0 +1,8 @@
+{
+  "name": "LexiGuess: Pro Word Quest",
+  "description": "A modern, neon-glassmorphic word guessing game combining elements of Wordle and Hangman with daily challenges and multiplayer modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
