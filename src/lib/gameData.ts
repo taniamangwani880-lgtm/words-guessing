@@ -45,7 +45,7 @@ export const WORDS: WordEntry[] = [
 ];
 
 export const DIFFICULTY_SETTINGS = {
-  easy: { attempts: 8, timeBonus: 30, points: 100 },
-  medium: { attempts: 6, timeBonus: 20, points: 200 },
-  hard: { attempts: 4, timeBonus: 10, points: 400 }
+  easy: { attempts: 8, timeBonus: 30, points: 100, initialReveals: 2 },
+  medium: { attempts: 6, timeBonus: 20, points: 200, initialReveals: 1 },
+  hard: { attempts: 4, timeBonus: 10, points: 400, initialReveals: 0 }
 };

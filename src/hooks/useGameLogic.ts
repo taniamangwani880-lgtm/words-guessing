@@ -25,17 +25,30 @@ export function useGameLogic() {
     if (saved) setStats(JSON.parse(saved));
   }, []);
 
-  const saveStats = (newStats: UserStats) => {
+  const saveStats = useCallback((newStats: UserStats) => {
     setStats(newStats);
     localStorage.setItem('lexiguess-stats', JSON.stringify(newStats));
-  };
+  }, []);
+
+  const getInitialReveals = useCallback((word: string, diff: Difficulty) => {
+    const revealsCount = DIFFICULTY_SETTINGS[diff].initialReveals;
+    const uniqueLetters = Array.from(new Set(word.split('')));
+    const revealed: string[] = [];
+    const countToReveal = Math.min(revealsCount, Math.floor(uniqueLetters.length / 2));
+    
+    for (let i = 0; i < countToReveal; i++) {
+        const randomIndex = Math.floor(Math.random() * uniqueLetters.length);
+        revealed.push(uniqueLetters.splice(randomIndex, 1)[0]);
+    }
+    return revealed;
+  }, []);
 
   const startNewGame = useCallback(() => {
     let filtered = category === 'random' ? WORDS : WORDS.filter(w => w.category === category);
     const random = filtered[Math.floor(Math.random() * filtered.length)];
     
     setWordEntry(random);
-    setRevealedLetters([]);
+    setRevealedLetters(getInitialReveals(random.word, difficulty));
     setWrongLetters([]);
     setGuesses([]);
     setCurrentGuess("");
@@ -47,7 +60,7 @@ export function useGameLogic() {
     } else {
       setTimeRemaining(null);
     }
-  }, [category, isTimerMode]);
+  }, [category, isTimerMode, difficulty, getInitialReveals]);
 
   useEffect(() => {
     startNewGame();
@@ -71,7 +84,26 @@ export function useGameLogic() {
     return () => clearInterval(id);
   }, [status, isTimerMode, timeRemaining]);
 
-  const handleKeyPress = (key: string) => {
+  useEffect(() => {
+    if (status !== 'playing') return;
+    
+    const uniqueLettersInWord = Array.from(new Set(wordEntry.word.split('')));
+    const allRevealed = uniqueLettersInWord.every(l => revealedLetters.includes(l));
+    
+    if (allRevealed && uniqueLettersInWord.length > 0) {
+      setStatus('won');
+      sounds.playWin();
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#00f3ff', '#bc13fe', '#39ff14']
+      });
+      updateStats(true);
+    }
+  }, [revealedLetters, wordEntry.word, status, updateStats]);
+
+  const handleKeyPress = useCallback((key: string) => {
     if (status !== 'playing') return;
 
     if (key === 'DELETE') {
@@ -87,7 +119,6 @@ export function useGameLogic() {
     }
 
     if (currentGuess.length < wordEntry.word.length && /^[A-Z]$/.test(key)) {
-      // Check if letter is in word for feedback
       if (wordEntry.word.includes(key)) {
         if (!revealedLetters.includes(key)) {
           setRevealedLetters(prev => [...prev, key]);
@@ -104,13 +135,10 @@ export function useGameLogic() {
           }
         }
       }
-      
-      // Also track as a guess element if we want full Wordle style
-      // For now we use the Hangman hybrid approach mainly
     }
-  };
+  }, [status, currentGuess, wordEntry.word, revealedLetters, wrongLetters, difficulty, updateStats]);
 
-  const processGuess = (guess: string) => {
+  const processGuess = useCallback((guess: string) => {
     setGuesses(prev => [...prev, guess]);
     setCurrentGuess("");
     
@@ -125,7 +153,7 @@ export function useGameLogic() {
       });
       updateStats(true);
     }
-  };
+  }, [wordEntry.word, updateStats]);
 
   const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [playerScores, setPlayerScores] = useState<[number, number]>([0, 0]);
@@ -138,7 +166,7 @@ export function useGameLogic() {
     startNewGame();
   };
 
-  const updateStats = (won: boolean) => {
+  const updateStats = useCallback((won: boolean) => {
     if (isMultiplayer) {
       if (won) {
         const newScores: [number, number] = [...playerScores];
@@ -163,7 +191,7 @@ export function useGameLogic() {
     }
     
     saveStats(newStats);
-  };
+  }, [isMultiplayer, playerScores, currentPlayer, stats, wrongLetters.length, revealedLetters.length, difficulty, saveStats]);
 
   const useHint = () => {
     if (hintUsed || stats.points < 50 || status !== 'playing') return;
@@ -181,9 +209,10 @@ export function useGameLogic() {
     const today = new Date().toISOString().slice(0, 10);
     const seed = today.split('-').reduce((acc, val) => acc + parseInt(val), 0);
     const dayIndex = seed % WORDS.length;
+    const dayWord = WORDS[dayIndex];
     
-    setWordEntry(WORDS[dayIndex]);
-    setRevealedLetters([]);
+    setWordEntry(dayWord);
+    setRevealedLetters(getInitialReveals(dayWord.word, difficulty));
     setWrongLetters([]);
     setGuesses([]);
     setCurrentGuess("");
